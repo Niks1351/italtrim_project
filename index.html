@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Atelier Studio — Hotel Amenity AI Photoshoot Studio</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Inter Font for Refined Editorial UI -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            stoneBg: '#f6f4f0',
+            stoneSurface: '#ffffff',
+            stoneBorder: '#e5e0d8',
+            charcoal: '#1f1d1a',
+            mutedText: '#6f6a63',
+            atelierTeal: '#328388',
+            atelierTealHover: '#26676b',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Subtle checkerboard pattern for the render stage to visualize transparent cutouts */
+    .stage-checkerboard {
+      background-color: #ece8e1;
+      background-image:
+        linear-gradient(45deg, #e2ddd5 25%, transparent 25%),
+        linear-gradient(-45deg, #e2ddd5 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #e2ddd5 75%),
+        linear-gradient(-45deg, transparent 75%, #e2ddd5 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+
+    /* Custom range slider styling matching Atelier Teal */
+    input[type="range"] {
+      accent-color: #328388;
+    }
+
+    /* Hide scrollbar cleanly for the horizontal session gallery strip */
+    .no-scrollbar::-webkit-scrollbar {
+      height: 6px;
+    }
+    .no-scrollbar::-webkit-scrollbar-track {
+      background: #f6f4f0;
+      border-radius: 9999px;
+    }
+    .no-scrollbar::-webkit-scrollbar-thumb {
+      background: #d6d0c6;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-stoneBg text-charcoal font-sans min-h-screen flex flex-col antialiased selection:bg-atelierTeal/20 selection:text-charcoal">
+
+  <!-- Toast Notification Container (Replaces native alert/confirm) -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-md w-[calc(100%-2.5rem)] pointer-events-none"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="bg-stoneSurface border-b border-stoneBorder px-4 sm:px-7 py-3.5 sticky top-0 z-30">
+    <div class="max-w-[1480px] mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+      <!-- Brand Identity -->
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-charcoal text-stoneSurface flex items-center justify-center font-semibold text-sm tracking-wider shadow-sm">
+          A
+        </div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <h1 class="text-base sm:text-lg font-bold tracking-[0.08em] uppercase text-charcoal">
+            ATELIER STUDIO
+          </h1>
+          <span class="text-[11px] font-semibold uppercase tracking-[0.07em] bg-[#eaf4f4] text-atelierTeal px-2.5 py-0.5 rounded-full border border-atelierTeal/15">
+            Hospitality AI
+          </span>
+        </div>
+      </div>
+
+      <!-- Engine Switcher & Optional Photoroom API Key Input -->
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+        <div class="inline-flex bg-stoneBg p-1 rounded-xl border border-stoneBorder" role="tablist" aria-label="Rendering Engine">
+          <button
+            id="engineInstantBtn"
+            type="button"
+            data-engine="instant"
+            class="engine-btn flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all bg-stoneSurface text-charcoal shadow-sm"
+          >
+            Instant AI (Built-in)
+          </button>
+          <button
+            id="enginePhotoroomBtn"
+            type="button"
+            data-engine="photoroom"
+            class="engine-btn flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all text-mutedText hover:text-charcoal"
+          >
+            Photoroom API v2
+          </button>
+        </div>
+
+        <!-- Revealed only when Photoroom API v2 is selected -->
+        <div id="photoroomKeyWrapper" class="hidden transition-all">
+          <input
+            type="password"
+            id="photoroomApiKey"
+            placeholder="Paste Photoroom x-api-key"
+            autocomplete="off"
+            class="w-full sm:w-60 px-3 py-1.5 text-xs bg-stoneBg border border-stoneBorder rounded-lg text-charcoal placeholder:text-mutedText focus:outline-none focus:border-atelierTeal focus:ring-2 focus:ring-atelierTeal/15"
+          />
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Two-Column Studio Workspace -->
+  <main class="flex-1 w-full max-w-[1480px] mx-auto p-4 sm:p-6 lg:p-7 grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-6 items-start">
+
+    <!-- LEFT CONTROL PANEL -->
+    <section class="bg-stoneSurface border border-stoneBorder rounded-2xl p-5 flex flex-col gap-5 shadow-[0_2px_12px_rgba(31,29,26,0.03)]">
+
+      <!-- 1. Studio Mode Tabs -->
+      <div class="grid grid-cols-2 bg-stoneBg p-1 rounded-xl border border-stoneBorder">
+        <button
+          type="button"
+          data-mode="staging"
+          class="mode-tab py-2.5 px-3 rounded-lg text-xs font-semibold transition-all bg-stoneSurface text-charcoal shadow-sm"
+        >
+          AI Scene Staging
+        </button>
+        <button
+          type="button"
+          data-mode="cutout"
+          class="mode-tab py-2.5 px-3 rounded-lg text-xs font-semibold transition-all text-mutedText hover:text-charcoal"
+        >
+          Strict Cutout Only
+        </button>
+      </div>
+
+      <!-- 2. Product Photo Upload Zone -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-[11px] font-semibold uppercase tracking-[0.09em] text-mutedText">
+            1. Amenity Product Photo
+          </h2>
+          <span id="uploadBadge" class="hidden text-[11px] font-medium text-atelierTeal bg-[#eaf4f4] px-2 py-0.5 rounded-full">
+            Ready
+          </span>
+        </div>
+
+        <div
+          id="uploadZone"
+          class="border-2 border-dashed border-stoneBorder hover:border-atelierTeal rounded-xl p-5 text-center cursor-pointer transition-all bg-[#faf9f7] hover:bg-[#f0f8f8]/70 group"
+        >
+          <input type="file" id="fileInput" accept="image/png,image/jpeg,image/webp" hidden />
+          <img
+            id="previewImg"
+            alt="Uploaded hotel amenity preview"
+            class="hidden max-h-36 max-w-full object-contain mx-auto mb-2.5 rounded-lg shadow-sm"
+          />
+          <div id="uploadIcon" class="w-10 h-10 mx-auto mb-2 rounded-full bg-stoneSurface border border-stoneBorder flex items-center justify-center text-mutedText group-hover:text-atelierTeal group-hover:border-atelierTeal/40 transition-colors">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+            </svg>
+          </div>
+          <p id="uploadText" class="text-xs text-mutedText leading-relaxed">
+            <span class="font-semibold text-charcoal">Click or drop</span> your amenity photo<br />
+            <span class="text-[11px]">PNG, JPG, or WebP &bull; Label &amp; packaging preserved</span>
+          </p>
+        </div>
+
+        <!-- Subtle Sample Amenity Button -->
+        <div class="mt-2.5 flex items-center justify-between">
+          <button
+            type="button"
+            id="trySampleBtn"
+            class="inline-flex items-center gap-1.5 text-xs font-medium text-atelierTeal hover:text-atelierTealHover transition-colors py-1"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            Try Sample Amenity
+          </button>
+          <span class="text-[11px] text-mutedText">Amber glass shampoo bottle</span>
+        </div>
+      </div>
+
+      <!-- 3 & 4. STAGING MODE CONTROLS -->
+      <div id="stagingControls" class="flex flex-col gap-4">
+        <div>
+          <h2 class="text-[11px] font-semibold uppercase tracking-[0.09em] text-mutedText mb-2">
+            2. Hospitality Scene Preset
+          </h2>
+          <div class="grid grid-cols-2 gap-2.5" id="presetGrid">
+            <!-- Carrara Marble -->
+            <button
+              type="button"
+              data-name="Carrara Marble"
+              data-prompt="resting on a honed Carrara marble luxury hotel bathroom vanity, soft morning window light, blurred brushed brass faucet and folded white waffle towel in background, architectural digest editorial photography"
+              class="preset-card text-left p-3 rounded-xl border-[1.5px] border-atelierTeal bg-[#f0f8f8] transition-all cursor-pointer"
+            >
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#e8e6e1] border border-stoneBorder inline-block"></span>
+                <span class="text-xs font-semibold text-charcoal">Carrara Marble</span>
+              </div>
+              <p class="text-[11px] text-mutedText leading-snug">Suite vanity, brass accents &amp; morning light</p>
+            </button>
+
+            <!-- Travertine Spa -->
+            <button
+              type="button"
+              data-name="Travertine Spa"
+              data-prompt="placed on a warm travertine stone spa plinth, dappled sunlight casting organic palm leaf shadows, minimal ceramic dish and eucalyptus sprig nearby, serene 5-star resort aesthetic"
+              class="preset-card text-left p-3 rounded-xl border-[1.5px] border-stoneBorder bg-stoneSurface hover:border-[#b8b0a4] transition-all cursor-pointer"
+            >
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#d9cbb8] border border-stoneBorder inline-block"></span>
+                <span class="text-xs font-semibold text-charcoal">Travertine Spa</span>
+              </div>
+              <p class="text-[11px] text-mutedText leading-snug">Warm limestone, dappled sun &amp; botanicals</p>
+            </button>
+
+            <!-- Dark Walnut Suite -->
+            <button
+              type="button"
+              data-name="Dark Walnut Suite"
+              data-prompt="styled on a dark walnut wood console in a boutique hotel suite, warm architectural spotlighting, brushed bronze tray, rich soft shadows, luxury hospitality campaign"
+              class="preset-card text-left p-3 rounded-xl border-[1.5px] border-stoneBorder bg-stoneSurface hover:border-[#b8b0a4] transition-all cursor-pointer"
+            >
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#4a3728] border border-stoneBorder inline-block"></span>
+                <span class="text-xs font-semibold text-charcoal">Dark Walnut Suite</span>
+              </div>
+              <p class="text-[11px] text-mutedText leading-snug">Moody boutique hotel, bronze &amp; warm light</p>
+            </button>
+
+            <!-- Coastal Resort -->
+            <button
+              type="button"
+              data-name="Coastal Resort"
+              data-prompt="positioned on textured beige coastal limestone near a sunlit resort terrace, bright Mediterranean golden hour glow, soft natural linen edge, crisp editorial shadows"
+              class="preset-card text-left p-3 rounded-xl border-[1.5px] border-stoneBorder bg-stoneSurface hover:border-[#b8b0a4] transition-all cursor-pointer"
+            >
+              <div class="flex items-center gap-1.5 mb-1">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#e6d7be] border border-stoneBorder inline-block"></span>
+                <span class="text-xs font-semibold text-charcoal">Coastal Resort</span>
+              </div>
+              <p class="text-[11px] text-mutedText leading-snug">Golden hour stone &amp; airy resort linen</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- Lighting & Seed Row -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="lightingMode" class="block text-[11px] font-semibold text-mutedText mb-1.5">
+              Lighting / Relighting
+            </label>
+            <select
+              id="lightingMode"
+              class="w-full px-3 py-2 text-xs bg-stoneSurface border border-stoneBorder rounded-lg text-charcoal focus:outline-none focus:border-atelierTeal"
+            >
+              <option value="color-safe">Color-Safe Relight (Best for Labels)</option>
+              <option value="morning">Soft Morning Daylight</option>
+              <option value="golden">Golden Hour Sunlight</option>
+              <option value="moody">Moody Boutique Architectural</option>
+              <option value="studio">Clean Commercial Studio</option>
+            </select>
+          </div>
+          <div>
+            <label for="collectionSeed" class="block text-[11px] font-semibold text-mutedText mb-1.5">
+              Collection Seed (Optional)
+            </label>
+            <input
+              type="number"
+              id="collectionSeed"
+              placeholder="e.g. 117879368"
+              class="w-full px-3 py-2 text-xs bg-stoneSurface border border-stoneBorder rounded-lg text-charcoal placeholder:text-mutedText/70 focus:outline-none focus:border-atelierTeal"
+            />
+          </div>
+        </div>
+
+        <!-- Art Direction Notes -->
+        <div>
+          <label for="artNotes" class="block text-[11px] font-semibold text-mutedText mb-1.5">
+            Art Direction Notes (Optional)
+          </label>
+          <textarea
+            id="artNotes"
+            rows="2"
+            placeholder="e.g., Add subtle water droplets on the stone, warm ivory linen accent..."
+            class="w-full px-3 py-2 text-xs bg-stoneSurface border border-stoneBorder rounded-lg text-charcoal placeholder:text-mutedText/70 resize-y focus:outline-none focus:border-atelierTeal"
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- 5. CUTOUT MODE CONTROLS -->
+      <div id="cutoutControls" class="hidden flex-col gap-3">
+        <h2 class="text-[11px] font-semibold uppercase tracking-[0.09em] text-mutedText">
+          2. Studio Cutout Settings
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="shadowMode" class="block text-[11px] font-semibold text-mutedText mb-1.5">
+              AI Contact Shadow
+            </label>
+            <select
+              id="shadowMode"
+              class="w-full px-3 py-2 text-xs bg-stoneSurface border border-stoneBorder rounded-lg text-charcoal focus:outline-none focus:border-atelierTeal"
+            >
+              <option value="ai.soft">Soft Studio Shadow</option>
+              <option value="ai.hard">Crisp Direct Shadow</option>
+              <option value="ai.floating">Floating Shadow</option>
+              <option value="none">None (Pure Cutout)</option>
+            </select>
+          </div>
+          <div>
+            <label for="bgFill" class="block text-[11px] font-semibold text-mutedText mb-1.5">
+              Background Fill
+            </label>
+            <select
+              id="bgFill"
+              class="w-full px-3 py-2 text-xs bg-stoneSurface border border-stoneBorder rounded-lg text-charcoal focus:outline-none focus:border-atelierTeal"
+            >
+              <option value="FFFFFF">Pure White (#FFFFFF)</option>
+              <option value="F5F2EB">Warm Stone (#F5F2EB)</option>
+              <option value="transparent">Transparent PNG</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. SHARED FRAMING CONTROLS -->
+      <div class="pt-3 border-t border-stoneBorder grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+        <div>
+          <label for="outputResolution" class="block text-[11px] font-semibold text-mutedText mb-1.5">
+            Output Resolution
+          </label>
+          <select
+            id="outputResolution"
+            class="w-full px-3 py-2 text-xs bg-stoneSurface border border-stoneBorder rounded-lg text-charcoal focus:outline-none focus:border-atelierTeal"
+          >
+            <option value="1080x1350" data-aspect="4:5">1080x1350 (4:5 Social)</option>
+            <option value="1080x1080" data-aspect="1:1">1080x1080 (1:1 Catalog)</option>
+            <option value="1920x1080" data-aspect="16:9">1920x1080 (16:9 Web Hero)</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="productMargin" class="text-[11px] font-semibold text-mutedText">
+              Product Margin
+            </label>
+            <span id="marginValue" class="text-[11px] font-semibold text-charcoal tabular-nums">15%</span>
+          </div>
+          <input
+            type="range"
+            id="productMargin"
+            min="5"
+            max="30"
+            step="1"
+            value="15"
+            class="w-full h-1.5 bg-stoneBorder rounded-lg cursor-pointer"
+          />
+        </div>
+      </div>
+
+      <!-- 7. PRIMARY CTA BUTTON -->
+      <button
+        type="button"
+        id="generateBtn"
+        class="w-full py-3.5 px-4 rounded-xl bg-atelierTeal hover:bg-atelierTealHover active:scale-[0.99] text-white font-semibold text-sm tracking-wide transition-all shadow-sm disabled:opacity-55 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+        </svg>
+        <span id="generateBtnText">Generate Photoshoot</span>
+      </button>
+    </section>
+
+    <!-- RIGHT OUTPUT STAGE -->
+    <section class="bg-stoneSurface border border-stoneBorder rounded-2xl p-5 flex flex-col gap-4 shadow-[0_2px_12px_rgba(31,29,26,0.03)]">
+
+      <!-- Main Render Canvas -->
+      <div
+        id="stageCanvas"
+        class="stage-checkerboard relative w-full min-h-[440px] sm:min-h-[540px] rounded-xl border border-stoneBorder overflow-hidden flex items-center justify-center p-4"
+      >
+        <!-- Before / After Toggle Button (Visible once a shoot is rendered) -->
+        <div id="compareControls" class="hidden absolute top-3.5 right-3.5 z-20 flex items-center gap-2">
+          <span
+            id="viewStateBadge"
+            class="px-2.5 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-charcoal/85 text-white backdrop-blur-sm"
+          >
+            After &bull; Photoshoot
+          </span>
+          <button
+            type="button"
+            id="beforeAfterBtn"
+            class="px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-stoneSurface/95 hover:bg-stoneSurface text-charcoal border border-stoneBorder shadow-sm backdrop-blur-sm transition-all flex items-center gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-atelierTeal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+            </svg>
+            Before / After
+          </button>
+        </div>
+
+        <!-- Initial Placeholder -->
+        <div
+          id="stagePlaceholder"
+          class="bg-stoneSurface/92 backdrop-blur-sm border border-stoneBorder rounded-2xl p-7 max-w-sm text-center shadow-sm"
+        >
+          <div class="w-12 h-12 mx-auto mb-3 rounded-xl bg-[#eaf4f4] text-atelierTeal flex items-center justify-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+            </svg>
+          </div>
+          <h3 class="text-sm font-semibold text-charcoal mb-1.5">Your Hospitality Photoshoot Stage</h3>
+          <p class="text-xs text-mutedText leading-relaxed">
+            Upload a hotel amenity photo—or click <strong class="text-charcoal">Try Sample Amenity</strong>—then choose a luxury architectural scene and hit <strong class="text-charcoal">Generate Photoshoot</strong>.
+          </p>
+        </div>
+
+        <!-- Animated Loading Overlay -->
+        <div
+          id="stageLoader"
+          class="hidden flex-col items-center gap-3 bg-stoneSurface/95 backdrop-blur-sm border border-stoneBorder rounded-2xl px-7 py-6 shadow-md z-10"
+        >
+          <div class="w-9 h-9 border-[3px] border-stoneBorder border-t-atelierTeal rounded-full animate-spin"></div>
+          <div class="text-center">
+            <p id="loaderTitle" class="text-xs font-semibold text-charcoal">Staging luxury hospitality scene...</p>
+            <p id="loaderSub" class="text-[11px] text-mutedText mt-0.5">Preserving packaging typography &amp; contact shadows</p>
+          </div>
+        </div>
+
+        <!-- Rendered Result Image -->
+        <img
+          id="resultImg"
+          alt="Generated luxury hotel amenity photoshoot"
+          class="hidden max-w-full max-h-[560px] object-contain rounded-lg shadow-md transition-opacity duration-200"
+        />
+      </div>
+
+      <!-- Stage Footer Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div
+          id="statusBar"
+          title="Ready — Instant AI (Built-in) active"
+          class="flex-1 min-w-0 text-xs text-mutedText bg-[#faf9f7] border border-stoneBorder rounded-lg px-3.5 py-2.5 truncate"
+        >
+          Ready &bull; Engine: Instant AI (Built-in) &bull; Zero setup required
+        </div>
+        <button
+          type="button"
+          id="downloadBtn"
+          disabled
+          class="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-semibold bg-stoneSurface hover:bg-stoneBg text-charcoal border border-stoneBorder transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-atelierTeal" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Download PNG
+        </button>
+      </div>
+
+      <!-- Bottom Session Shoots Gallery Strip -->
+      <div class="pt-3 border-t border-stoneBorder">
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-[0.09em] text-mutedText">
+            Session Shoots
+          </h2>
+          <span id="sessionCount" class="text-[11px] text-mutedText">0 takes</span>
+        </div>
+
+        <div id="sessionGallery" class="flex items-center gap-3 overflow-x-auto pb-1.5 no-scrollbar min-h-[76px]">
+          <div id="galleryEmpty" class="w-full py-5 text-center text-xs text-mutedText bg-[#faf9f7] border border-dashed border-stoneBorder rounded-xl">
+            Generated photoshoots from this session will appear here for quick comparison and download.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    /**
+     * Atelier Studio — Hotel Amenity AI Photoshoot Studio
+     * Supports:
+     * 1. Instant AI (Built-in) via Gemini 3.1 Flash Image (image-to-image)
+     * 2. Photoroom API v2 (POST https://image-api.photoroom.com/v2/edit)
+     */
+
+    // =========================================================================
+    // CONFIGURATION & APPLICATION STATE
+    // =========================================================================
+    const GEMINI_IMAGE_MODEL = 'gemini-3.1-flash-image';
+    const GEMINI_API_KEY = ''; // Automatically injected at runtime by Canvas
+    const PHOTOROOM_ENDPOINT = 'https://image-api.photoroom.com/v2/edit';
+
+    const state = {
+      engine: 'instant', // 'instant' | 'photoroom'
+      mode: 'staging',   // 'staging' | 'cutout'
+      selectedPresetName: 'Carrara Marble',
+      selectedPresetPrompt:
+        'resting on a honed Carrara marble luxury hotel bathroom vanity, soft morning window light, blurred brushed brass faucet and folded white waffle towel in background, architectural digest editorial photography',
+      uploadedFile: null,      // File or Blob (used by Photoroom FormData)
+      uploadedDataUrl: null,   // Full data URL (used for preview & Before view)
+      uploadedBase64: null,    // Raw base64 payload (used by Gemini API)
+      uploadedMimeType: 'image/png',
+      showingBefore: false,
+      activeShootId: null,
+      sessionShoots: [],       // Array of { id, url, originalUrl, label, mode, engine, prompt, timestamp }
+      isGenerating: false,
+    };
+
+    // Lighting descriptors for Gemini & Photoroom mapping
+    const LIGHTING_CONFIG = {
+      'color-safe': {
+        gemini: 'balanced color-accurate natural studio relighting that preserves exact packaging brand hues and label saturation, realistic soft contact shadows and subtle reflections',
+        photoroom: 'ai.preserve-hue-and-saturation',
+      },
+      morning: {
+        gemini: 'soft natural morning window daylight streaming from the side, gentle airy highlights, delicate soft shadows',
+        photoroom: 'ai.preserve-hue-and-saturation',
+      },
+      golden: {
+        gemini: 'warm Mediterranean golden hour sunlight casting crisp directional architectural shadows and warm rim highlights',
+        photoroom: 'ai.auto',
+      },
+      moody: {
+        gemini: 'moody warm boutique hotel architectural sconce spotlighting, rich deep contrast, subtle bronze specular highlights',
+        photoroom: 'ai.auto',
+      },
+      studio: {
+        gemini: 'clean high-key commercial product studio lighting with softbox wrap highlights and crisp neutral shadows',
+        photoroom: 'ai.preserve-hue-and-saturation',
+      },
+    };
+
+    // =========================================================================
+    // DOM REFERENCES
+    // =========================================================================
+    const dom = {
+      toastContainer: document.getElementById('toastContainer'),
+      engineBtns: document.querySelectorAll('.engine-btn'),
+      photoroomKeyWrapper: document.getElementById('photoroomKeyWrapper'),
+      photoroomApiKey: document.getElementById('photoroomApiKey'),
+      modeTabs: document.querySelectorAll('.mode-tab'),
+      stagingControls: document.getElementById('stagingControls'),
+      cutoutControls: document.getElementById('cutoutControls'),
+      uploadZone: document.getElementById('uploadZone'),
+      fileInput: document.getElementById('fileInput'),
+      previewImg: document.getElementById('previewImg'),
+      uploadIcon: document.getElementById('uploadIcon'),
+      uploadText: document.getElementById('uploadText'),
+      uploadBadge: document.getElementById('uploadBadge'),
+      trySampleBtn: document.getElementById('trySampleBtn'),
+      presetCards: document.querySelectorAll('.preset-card'),
+      lightingMode: document.getElementById('lightingMode'),
+      collectionSeed: document.getElementById('collectionSeed'),
+      artNotes: document.getElementById('artNotes'),
+      shadowMode: document.getElementById('shadowMode'),
+      bgFill: document.getElementById('bgFill'),
+      outputResolution: document.getElementById('outputResolution'),
+      productMargin: document.getElementById('productMargin'),
+      marginValue: document.getElementById('marginValue'),
+      generateBtn: document.getElementById('generateBtn'),
+      generateBtnText: document.getElementById('generateBtnText'),
+      stagePlaceholder: document.getElementById('stagePlaceholder'),
+      stageLoader: document.getElementById('stageLoader'),
+      loaderTitle: document.getElementById('loaderTitle'),
+      loaderSub: document.getElementById('loaderSub'),
+      resultImg: document.getElementById('resultImg'),
+      compareControls: document.getElementById('compareControls'),
+      beforeAfterBtn: document.getElementById('beforeAfterBtn'),
+      viewStateBadge: document.getElementById('viewStateBadge'),
+      statusBar: document.getElementById('statusBar'),
+      downloadBtn: document.getElementById('downloadBtn'),
+      sessionGallery: document.getElementById('sessionGallery'),
+      galleryEmpty: document.getElementById('galleryEmpty'),
+      sessionCount: document.getElementById('sessionCount'),
+    };
+
+    // =========================================================================
+    // TOAST NOTIFICATION SYSTEM (No alert/confirm)
+    // =========================================================================
+    function showToast(message, type = 'info') {
+      const styles = {
+        info: 'bg-charcoal text-white border-charcoal',
+        success: 'bg-[#1f4e52] text-white border-atelierTeal',
+        error: 'bg-[#7f1d1d] text-white border-red-800',
+        warning: 'bg-[#78350f] text-white border-amber-700',
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto px-4 py-3 rounded-xl border shadow-lg text-xs leading-relaxed flex items-start justify-between gap-3 transition-all duration-300 opacity-0 translate-y-2 ${styles[type] || styles.info}`;
+      toast.innerHTML = `
+        <span>${escapeHtml(message)}</span>
+        <button type="button" class="text-white/75 hover:text-white font-bold text-sm leading-none ml-1" aria-label="Dismiss">&times;</button>
+      `;
+
+      const closeBtn = toast.querySelector('button');
+      const dismiss = () => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 250);
+      };
+      closeBtn.addEventListener('click', dismiss);
+
+      dom.toastContainer.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('opacity-0', 'translate-y-2');
+      });
+
+      setTimeout(dismiss, 5500);
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    // =========================================================================
+    // PROCEDURAL SAMPLE AMENITY GENERATOR (Amber-Glass Hotel Shampoo Bottle)
+    // =========================================================================
+    function generateSampleAmenityImage() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 768;
+      canvas.height = 960;
+      const ctx = canvas.getContext('2d');
+
+      // 1. Soft neutral studio backdrop
+      const bgGrad = ctx.createRadialGradient(384, 420, 60, 384, 480, 620);
+      bgGrad.addColorStop(0, '#f7f5f0');
+      bgGrad.addColorStop(1, '#e6e1d8');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 2. Soft floor contact shadow
+      ctx.save();
+      const shadowGrad = ctx.createRadialGradient(384, 835, 15, 384, 835, 170);
+      shadowGrad.addColorStop(0, 'rgba(31, 29, 26, 0.32)');
+      shadowGrad.addColorStop(0.6, 'rgba(31, 29, 26, 0.12)');
+      shadowGrad.addColorStop(1, 'rgba(31, 29, 26, 0)');
+      ctx.fillStyle = shadowGrad;
+      ctx.beginPath();
+      ctx.ellipse(384, 835, 165, 28, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Helper for rounded rectangle path
+      function roundRectPath(x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+
+      // 3. Matte Black Pump Dispenser Assembly
+      // Pump stem
+      const stemGrad = ctx.createLinearGradient(368, 0, 400, 0);
+      stemGrad.addColorStop(0, '#1a1917');
+      stemGrad.addColorStop(0.35, '#3b3834');
+      stemGrad.addColorStop(1, '#141312');
+      ctx.fillStyle = stemGrad;
+      ctx.fillRect(370, 178, 28, 56);
+
+      // Pump head & sleek horizontal nozzle
+      ctx.fillStyle = '#201e1c';
+      roundRectPath(354, 134, 60, 48, 8);
+      ctx.fill();
+
+      // Nozzle spout extending right
+      ctx.beginPath();
+      ctx.moveTo(408, 144);
+      ctx.lineTo(486, 152);
+      ctx.quadraticCurveTo(494, 154, 492, 165);
+      ctx.lineTo(482, 170);
+      ctx.lineTo(408, 166);
+      ctx.closePath();
+      const nozzleGrad = ctx.createLinearGradient(408, 144, 408, 170);
+      nozzleGrad.addColorStop(0, '#3a3734');
+      nozzleGrad.addColorStop(0.5, '#1e1c1a');
+      nozzleGrad.addColorStop(1, '#11100f');
+      ctx.fillStyle = nozzleGrad;
+      ctx.fill();
+
+      // Ribbed matte black collar
+      const collarGrad = ctx.createLinearGradient(334, 0, 434, 0);
+      collarGrad.addColorStop(0, '#181715');
+      collarGrad.addColorStop(0.28, '#383531');
+      collarGrad.addColorStop(0.65, '#1d1b19');
+      collarGrad.addColorStop(1, '#121110');
+      ctx.fillStyle = collarGrad;
+      roundRectPath(336, 224, 96, 48, 6);
+      ctx.fill();
+
+      // Subtle vertical ribbing on collar
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1.5;
+      for (let rx = 344; rx <= 424; rx += 6) {
+        ctx.beginPath();
+        ctx.moveTo(rx, 228);
+        ctx.lineTo(rx, 268);
+        ctx.stroke();
+      }
+
+      // 4. Amber Glass Bottle Body (Apothecary shoulder silhouette)
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(340, 272);
+      ctx.lineTo(428, 272);
+      ctx.bezierCurveTo(436, 305, 504, 326, 504, 376);
+      ctx.lineTo(504, 804);
+      ctx.quadraticCurveTo(504, 832, 474, 832);
+      ctx.lineTo(294, 832);
+      ctx.quadraticCurveTo(264, 832, 264, 804);
+      ctx.lineTo(264, 376);
+      ctx.bezierCurveTo(264, 326, 332, 305, 340, 272);
+      ctx.closePath();
+
+      // Rich cylindrical amber glass gradient
+      const glassGrad = ctx.createLinearGradient(264, 0, 504, 0);
+      glassGrad.addColorStop(0.0, '#2e1103');
+      glassGrad.addColorStop(0.14, '#7d360d');
+      glassGrad.addColorStop(0.30, '#b5561a');
+      glassGrad.addColorStop(0.50, '#78320b');
+      glassGrad.addColorStop(0.76, '#4d1e05');
+      glassGrad.addColorStop(0.90, '#8c3f11');
+      glassGrad.addColorStop(1.0, '#290e02');
+      ctx.fillStyle = glassGrad;
+      ctx.fill();
+
+      // Clip inside bottle for glass speculars & base thickness
+      ctx.clip();
+
+      // Dark thick glass base
+      const baseGrad = ctx.createLinearGradient(0, 785, 0, 834);
+      baseGrad.addColorStop(0, 'rgba(30, 10, 2, 0)');
+      baseGrad.addColorStop(0.55, 'rgba(26, 8, 2, 0.55)');
+      baseGrad.addColorStop(1, 'rgba(18, 5, 1, 0.85)');
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(264, 785, 240, 52);
+
+      // Left vertical glass specular highlight
+      const leftSpec = ctx.createLinearGradient(286, 0, 318, 0);
+      leftSpec.addColorStop(0, 'rgba(255, 232, 200, 0)');
+      leftSpec.addColorStop(0.45, 'rgba(255, 236, 210, 0.42)');
+      leftSpec.addColorStop(1, 'rgba(255, 232, 200, 0)');
+      ctx.fillStyle = leftSpec;
+      ctx.fillRect(286, 330, 32, 480);
+
+      // Shoulder curved highlight
+      ctx.strokeStyle = 'rgba(255, 238, 214, 0.35)';
+      ctx.lineWidth = 8;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(342, 286);
+      ctx.bezierCurveTo(334, 314, 294, 332, 294, 368);
+      ctx.stroke();
+
+      // Right rim backlight reflection
+      const rightSpec = ctx.createLinearGradient(476, 0, 496, 0);
+      rightSpec.addColorStop(0, 'rgba(255, 205, 150, 0)');
+      rightSpec.addColorStop(0.5, 'rgba(255, 210, 160, 0.28)');
+      rightSpec.addColorStop(1, 'rgba(255, 205, 150, 0)');
+      ctx.fillStyle = rightSpec;
+      ctx.fillRect(476, 340, 20, 470);
+      ctx.restore();
+
+      // 5. Minimalist Cream Cotton-Paper Wrap Label
+      const lx = 264;
+      const ly = 418;
+      const lw = 240;
+      const lh = 310;
+
+      // Cylindrical lighting across paper label
+      const labelGrad = ctx.createLinearGradient(lx, 0, lx + lw, 0);
+      labelGrad.addColorStop(0.0, '#d8d2c6');
+      labelGrad.addColorStop(0.14, '#f3efe6');
+      labelGrad.addColorStop(0.42, '#fbf9f4');
+      labelGrad.addColorStop(0.75, '#efeae0');
+      labelGrad.addColorStop(1.0, '#cfc8bb');
+      ctx.fillStyle = labelGrad;
+      ctx.fillRect(lx, ly, lw, lh);
+
+      // Crisp top/bottom label edges
+      ctx.strokeStyle = 'rgba(31, 29, 26, 0.14)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lx + 0.5, ly + 0.5, lw - 1, lh - 1);
+
+      // Inner architectural hairline frame on label
+      ctx.strokeStyle = 'rgba(31, 29, 26, 0.22)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(lx + 22, ly + 22, lw - 44, lh - 44);
+
+      // Label Typography
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#1f1d1a';
+
+      ctx.font = '600 13px Inter, sans-serif';
+      ctx.fillText('A T E L I E R', 384, ly + 62);
+      ctx.font = '500 10px Inter, sans-serif';
+      ctx.fillStyle = '#6f6a63';
+      ctx.fillText('B O T A N I C A  \u2022  P A R I S', 384, ly + 80);
+
+      // Divider rule
+      ctx.strokeStyle = '#328388';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(356, ly + 102);
+      ctx.lineTo(412, ly + 102);
+      ctx.stroke();
+
+      // Scent / Formula title
+      ctx.fillStyle = '#1f1d1a';
+      ctx.font = '700 18px Georgia, serif';
+      ctx.fillText('CEDAR &', 384, ly + 142);
+      ctx.fillText('BERGAMOT', 384, ly + 166);
+
+      ctx.fillStyle = '#55504a';
+      ctx.font = '500 11px Inter, sans-serif';
+      ctx.fillText('NOURISHING SHAMPOO', 384, ly + 196);
+
+      // Subtle botanical note
+      ctx.fillStyle = '#7a746c';
+      ctx.font = 'italic 11px Georgia, serif';
+      ctx.fillText('Cold-pressed botanicals', 384, ly + 226);
+
+      // Volume footer
+      ctx.fillStyle = '#1f1d1a';
+      ctx.font = '600 10px Inter, sans-serif';
+      ctx.fillText('300 ML  |  10.1 FL OZ', 384, ly + 268);
+
+      return new Promise((resolve) => {
+        const dataUrl = canvas.toDataURL('image/png');
+        canvas.toBlob((blob) => {
+          const sampleFile = new File([blob], 'atelier-botanica-shampoo.png', { type: 'image/png' });
+          resolve({ file: sampleFile, dataUrl });
+        }, 'image/png');
+      });
+    }
+
+    // =========================================================================
+    // FILE HANDLING
+    // =========================================================================
+    function loadProductImage(file, dataUrlOverride = null) {
+      if (!file) return;
+      state.uploadedFile = file;
+      state.uploadedMimeType = file.type || 'image/png';
+
+      const applyDataUrl = (dataUrl) => {
+        state.uploadedDataUrl = dataUrl;
+        state.uploadedBase64 = dataUrl.split(',')[1];
+        dom.previewImg.src = dataUrl;
+        dom.previewImg.classList.remove('hidden');
+        dom.uploadIcon.classList.add('hidden');
+        dom.uploadBadge.classList.remove('hidden');
+        dom.uploadText.innerHTML = `<span class="font-medium text-charcoal">${escapeHtml(file.name)}</span><br /><span class="text-[11px]">Click or drop to replace</span>`;
+      };
+
+      if (dataUrlOverride) {
+        applyDataUrl(dataUrlOverride);
+      } else {
+        const reader = new FileReader();
+        reader.onload = (e) => applyDataUrl(e.target.result);
+        reader.readAsDataURL(file);
+      }
+    }
+
+    // =========================================================================
+    // PROMPT BUILDER (Instant AI / Gemini 3.1 Flash Image)
+    // =========================================================================
+    function buildInstantAiPrompt() {
+      const marginPct = dom.productMargin.value;
+      const resOption = dom.outputResolution.options[dom.outputResolution.selectedIndex];
+      const aspect = resOption.dataset.aspect || '4:5';
+
+      if (state.mode === 'cutout') {
+        const shadowMap = {
+          'ai.soft': 'a realistic soft diffused studio contact shadow directly beneath the base',
+          'ai.hard': 'a crisp directional commercial studio shadow beneath the product',
+          'ai.floating': 'a subtle soft floating drop shadow beneath the product',
+          none: 'completely clean edges with no cast shadow',
+        };
+        const bgMap = {
+          FFFFFF: 'a pure seamless solid white (#FFFFFF) commercial e-commerce studio background',
+          F5F2EB: 'a seamless solid warm stone (#F5F2EB) luxury catalog studio background',
+          transparent: 'a pure seamless solid white (#FFFFFF) clean studio packshot background',
+        };
+
+        const shadowDesc = shadowMap[dom.shadowMode.value] || shadowMap['ai.soft'];
+        const bgDesc = bgMap[dom.bgFill.value] || bgMap['FFFFFF'];
+
+        return [
+          'Commercial luxury hospitality product packshot photography.',
+          'STRICT PRODUCT & TYPOGRAPHY PRESERVATION: Keep the exact bottle/product silhouette, proportions, material texture, colors, logo, and all label typography 100% identical to the provided reference image with zero distortion or hallucinated text.',
+          `Isolate the product cleanly and place it centered with approximately ${marginPct}% breathing margin on ${bgDesc}.`,
+          `Add ${shadowDesc}.`,
+          `Aspect ratio ${aspect}. Ultra-sharp commercial macro photography, clean studio lighting, zero props, zero clutter.`,
+        ].join(' ');
+      }
+
+      // Staging Mode
+      const lightingKey = dom.lightingMode.value;
+      const lightingDesc = LIGHTING_CONFIG[lightingKey]?.gemini || LIGHTING_CONFIG['color-safe'].gemini;
+      const notes = dom.artNotes.value.trim();
+      const seed = dom.collectionSeed.value.trim();
+
+      return [
+        'Commercial luxury 5-star hospitality editorial product photography.',
+        'STRICT PRODUCT & LABEL LOCK: Preserve the exact product shape, cap/pump hardware, material finish, brand colors, logo, and every word of label typography from the input reference photo without altering or distorting the packaging.',
+        `Scene composition: ${state.selectedPresetPrompt}.`,
+        `Lighting & relighting: ${lightingDesc}.`,
+        `Framing: Center-weighted editorial composition with approximately ${marginPct}% framing margin around the product, aspect ratio ${aspect}.`,
+        'Camera: Shot on Hasselblad X2D with 120mm macro lens at f/4, tack-sharp focus across the entire product label, natural architectural depth of field.',
+        notes ? `Additional art direction: ${notes}.` : '',
+        seed ? `Visual consistency reference seed: ${seed}.` : '',
+      ]
+        .filter(Boolean)
+        .join(' ');
+    }
+
+    // =========================================================================
+    // EXPONENTIAL BACKOFF FETCH HELPER
+    // =========================================================================
+    async function fetchWithBackoff(url, options, maxRetries = 4) {
+      let delay = 1000;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        const response = await fetch(url, options);
+        if (response.ok || (response.status < 500 && response.status !== 429)) {
+          return response;
+        }
+        if (attempt === maxRetries) {
+          return response;
+        }
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        delay *= 2;
+      }
+    }
+
+    // =========================================================================
+    // ENGINE 1: INSTANT AI (GEMINI 3.1 FLASH IMAGE - IMAGE TO IMAGE)
+    // =========================================================================
+    async function renderWithInstantAI() {
+      const prompt = buildInstantAiPrompt();
+      const resOption = dom.outputResolution.options[dom.outputResolution.selectedIndex];
+      const aspectRatio = resOption.dataset.aspect || '4:5';
+
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+      const payload = {
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: state.uploadedMimeType,
+                  data: state.uploadedBase64,
+                },
+              },
+            ],
+          },
+        ],
+        generationConfig: {
+          responseModalities: ['TEXT', 'IMAGE'],
+          imageConfig: {
+            aspectRatio: aspectRatio,
+          },
+        },
+      };
+
+      const response = await fetchWithBackoff(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data?.error?.message || `API returned HTTP ${response.status}`);
+      }
+
+      const imagePart = data?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData);
+      if (!imagePart?.inlineData?.data) {
+        throw new Error('The AI engine did not return an image. Please try adjusting your prompt or retrying.');
+      }
+
+      const mime = imagePart.inlineData.mimeType || 'image/png';
+      return {
+        imageUrl: `data:${mime};base64,${imagePart.inlineData.data}`,
+        summaryText: prompt,
+      };
+    }
+
+    // =========================================================================
+    // ENGINE 2: PHOTOROOM API v2 (POST https://image-api.photoroom.com/v2/edit)
+    // =========================================================================
+    async function renderWithPhotoroom() {
+      const apiKey = dom.photoroomApiKey.value.trim();
+      if (!apiKey) {
+        throw new Error('Please paste your Photoroom Plus API key (x-api-key) in the top-right bar, or switch to Instant AI (Built-in).');
+      }
+
+      const formData = new FormData();
+      formData.append('imageFile', state.uploadedFile);
+      formData.append('removeBackground', 'true');
+      formData.append('outputSize', dom.outputResolution.value);
+      formData.append('padding', (parseInt(dom.productMargin.value, 10) / 100).toFixed(2));
+      formData.append('export.format', 'png');
+
+      let summaryText = '';
+
+      if (state.mode === 'staging') {
+        const notes = dom.artNotes.value.trim();
+        const fullPrompt = notes
+          ? `${state.selectedPresetPrompt}, ${notes}`
+          : state.selectedPresetPrompt;
+
+        formData.append('background.prompt', fullPrompt);
+        formData.append('background.expandPrompt', 'auto');
+
+        const relightMode = LIGHTING_CONFIG[dom.lightingMode.value]?.photoroom || 'ai.preserve-hue-and-saturation';
+        formData.append('lighting.mode', relightMode);
+
+        const seed = dom.collectionSeed.value.trim();
+        if (seed) {
+          formData.append('background.seed', seed);
+        }
+
+        summaryText = `Photoroom v2 Staging (${dom.outputResolution.value}) • ${fullPrompt}`;
+      } else {
+        const shadow = dom.shadowMode.value;
+        if (shadow !== 'none') {
+          formData.append('shadow.mode', shadow);
+        }
+
+        const bgFill = dom.bgFill.value;
+        if (bgFill !== 'transparent') {
+          formData.append('background.color', bgFill);
+        }
+
+        summaryText = `Photoroom v2 Cutout (${dom.outputResolution.value}) • Shadow: ${shadow} • Fill: ${bgFill}`;
+      }
+
+      let response;
+      try {
+        response = await fetch(PHOTOROOM_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'x-api-key': apiKey,
+          },
+          body: formData,
+        });
+      } catch (networkErr) {
+        throw new Error(
+          'Browser blocked the direct Photoroom request (CORS) or network failed. Route requests via a lightweight backend proxy for production, or use Instant AI (Built-in) right here.'
+        );
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Photoroom HTTP ${response.status}: ${errText || response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const imageUrl = URL.createObjectURL(blob);
+      return { imageUrl, summaryText };
+    }
+
+    // =========================================================================
+    // STAGE & GALLERY DISPLAY LOGIC
+    // =========================================================================
+    function displayShoot(shoot) {
+      state.activeShootId = shoot.id;
+      state.showingBefore = false;
+
+      dom.stagePlaceholder.classList.add('hidden');
+      dom.resultImg.src = shoot.url;
+      dom.resultImg.classList.remove('hidden');
+      dom.compareControls.classList.remove('hidden');
+      dom.viewStateBadge.textContent = 'After \u2022 Photoshoot';
+      dom.downloadBtn.disabled = false;
+
+      dom.statusBar.textContent = shoot.summaryText;
+      dom.statusBar.title = shoot.summaryText;
+
+      renderSessionGallery();
+    }
+
+    function renderSessionGallery() {
+      dom.sessionCount.textContent = `${state.sessionShoots.length} ${state.sessionShoots.length === 1 ? 'take' : 'takes'}`;
+
+      if (state.sessionShoots.length === 0) {
+        dom.galleryEmpty.classList.remove('hidden');
+        return;
+      }
+
+      dom.galleryEmpty.classList.add('hidden');
+      // Remove existing thumbnail cards
+      dom.sessionGallery.querySelectorAll('.shoot-thumb').forEach((el) => el.remove());
+
+      state.sessionShoots.forEach((shoot) => {
+        const isActive = shoot.id === state.activeShootId;
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = `shoot-thumb shrink-0 group relative w-20 h-20 rounded-xl overflow-hidden border-2 transition-all bg-stoneBg ${
+          isActive ? 'border-atelierTeal ring-2 ring-atelierTeal/20' : 'border-stoneBorder hover:border-[#b8b0a4]'
+        }`;
+        card.title = `${shoot.label} (${shoot.timestamp})`;
+
+        card.innerHTML = `
+          <img src="${shoot.url}" alt="${escapeHtml(shoot.label)}" class="w-full h-full object-cover" />
+          <div class="absolute inset-x-0 bottom-0 bg-charcoal/75 text-white text-[9px] font-medium px-1.5 py-0.5 truncate">
+            ${escapeHtml(shoot.label)}
+          </div>
+        `;
+
+        card.addEventListener('click', () => displayShoot(shoot));
+        dom.sessionGallery.appendChild(card);
+      });
+    }
+
+    // =========================================================================
+    // EVENT LISTENERS
+    // =========================================================================
+
+    // Engine Switcher
+    dom.engineBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.engine = btn.dataset.engine;
+        dom.engineBtns.forEach((b) => {
+          const active = b.dataset.engine === state.engine;
+          b.classList.toggle('bg-stoneSurface', active);
+          b.classList.toggle('text-charcoal', active);
+          b.classList.toggle('shadow-sm', active);
+          b.classList.toggle('text-mutedText', !active);
+        });
+
+        dom.photoroomKeyWrapper.classList.toggle('hidden', state.engine !== 'photoroom');
+
+        const engineLabel = state.engine === 'instant'
+          ? 'Instant AI (Built-in) • Zero setup required'
+          : 'Photoroom API v2 • POST https://image-api.photoroom.com/v2/edit';
+        dom.statusBar.textContent = `Ready • Engine: ${engineLabel}`;
+        dom.statusBar.title = dom.statusBar.textContent;
+      });
+    });
+
+    // Studio Mode Tabs (Staging vs Cutout)
+    dom.modeTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        state.mode = tab.dataset.mode;
+        dom.modeTabs.forEach((t) => {
+          const active = t.dataset.mode === state.mode;
+          t.classList.toggle('bg-stoneSurface', active);
+          t.classList.toggle('text-charcoal', active);
+          t.classList.toggle('shadow-sm', active);
+          t.classList.toggle('text-mutedText', !active);
+        });
+
+        dom.stagingControls.classList.toggle('hidden', state.mode !== 'staging');
+        dom.cutoutControls.classList.toggle('hidden', state.mode !== 'cutout');
+        dom.cutoutControls.classList.toggle('flex', state.mode === 'cutout');
+
+        dom.generateBtnText.textContent =
+          state.mode === 'staging' ? 'Generate Photoshoot' : 'Generate Studio Cutout';
+      });
+    });
+
+    // Product Upload (Click + Drag & Drop)
+    dom.uploadZone.addEventListener('click', () => dom.fileInput.click());
+    dom.uploadZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dom.uploadZone.classList.add('border-atelierTeal', 'bg-[#f0f8f8]');
+    });
+    dom.uploadZone.addEventListener('dragleave', () => {
+      dom.uploadZone.classList.remove('border-atelierTeal', 'bg-[#f0f8f8]');
+    });
+    dom.uploadZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dom.uploadZone.classList.remove('border-atelierTeal', 'bg-[#f0f8f8]');
+      if (e.dataTransfer.files[0]) {
+        loadProductImage(e.dataTransfer.files[0]);
+      }
+    });
+    dom.fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) {
+        loadProductImage(e.target.files[0]);
+      }
+    });
+
+    // Try Sample Amenity Button
+    dom.trySampleBtn.addEventListener('click', async () => {
+      try {
+        const { file, dataUrl } = await generateSampleAmenityImage();
+        loadProductImage(file, dataUrl);
+        showToast('Loaded sample luxury amber-glass hotel shampoo bottle.', 'success');
+      } catch (err) {
+        showToast('Could not generate sample image: ' + err.message, 'error');
+      }
+    });
+
+    // Scene Preset Selection
+    dom.presetCards.forEach((card) => {
+      card.addEventListener('click', () => {
+        dom.presetCards.forEach((c) => {
+          c.classList.remove('border-atelierTeal', 'bg-[#f0f8f8]');
+          c.classList.add('border-stoneBorder', 'bg-stoneSurface');
+        });
+        card.classList.remove('border-stoneBorder', 'bg-stoneSurface');
+        card.classList.add('border-atelierTeal', 'bg-[#f0f8f8]');
+        state.selectedPresetName = card.dataset.name;
+        state.selectedPresetPrompt = card.dataset.prompt;
+      });
+    });
+
+    // Margin Slider
+    dom.productMargin.addEventListener('input', () => {
+      dom.marginValue.textContent = `${dom.productMargin.value}%`;
+    });
+
+    // Before / After Toggle
+    dom.beforeAfterBtn.addEventListener('click', () => {
+      const currentShoot = state.sessionShoots.find((s) => s.id === state.activeShootId);
+      if (!currentShoot) return;
+
+      state.showingBefore = !state.showingBefore;
+      if (state.showingBefore) {
+        dom.resultImg.src = currentShoot.originalUrl;
+        dom.viewStateBadge.textContent = 'Before \u2022 Original';
+      } else {
+        dom.resultImg.src = currentShoot.url;
+        dom.viewStateBadge.textContent = 'After \u2022 Photoshoot';
+      }
+    });
+
+    // Generate CTA
+    dom.generateBtn.addEventListener('click', async () => {
+      if (state.isGenerating) return;
+
+      if (!state.uploadedBase64 || !state.uploadedFile) {
+        showToast('Please upload a hotel amenity product photo first—or click "Try Sample Amenity".', 'warning');
+        return;
+      }
+
+      state.isGenerating = true;
+      dom.generateBtn.disabled = true;
+      dom.stagePlaceholder.classList.add('hidden');
+      dom.resultImg.classList.add('hidden');
+      dom.compareControls.classList.add('hidden');
+      dom.stageLoader.classList.remove('hidden');
+      dom.stageLoader.classList.add('flex');
+
+      dom.loaderTitle.textContent =
+        state.mode === 'staging'
+          ? `Staging ${state.selectedPresetName} photoshoot...`
+          : 'Extracting clean studio packshot...';
+      dom.loaderSub.textContent =
+        state.engine === 'instant'
+          ? 'Locking label typography & compositing luxury lighting'
+          : 'Sending multipart payload to Photoroom API v2';
+
+      try {
+        const result =
+          state.engine === 'instant'
+            ? await renderWithInstantAI()
+            : await renderWithPhotoroom();
+
+        const newShoot = {
+          id: `shoot-${Date.now()}`,
+          url: result.imageUrl,
+          originalUrl: state.uploadedDataUrl,
+          label: state.mode === 'staging' ? state.selectedPresetName : 'Studio Cutout',
+          mode: state.mode,
+          engine: state.engine,
+          summaryText: result.summaryText,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+
+        state.sessionShoots.unshift(newShoot);
+        displayShoot(newShoot);
+        showToast(`${newShoot.label} rendered successfully.`, 'success');
+      } catch (err) {
+        // Restore previous shoot if one exists, otherwise show placeholder
+        const previous = state.sessionShoots.find((s) => s.id === state.activeShootId);
+        if (previous) {
+          displayShoot(previous);
+        } else {
+          dom.stagePlaceholder.classList.remove('hidden');
+        }
+        dom.statusBar.textContent = `Error: ${err.message}`;
+        dom.statusBar.title = err.message;
+        showToast(err.message, 'error');
+      } finally {
+        state.isGenerating = false;
+        dom.generateBtn.disabled = false;
+        dom.stageLoader.classList.add('hidden');
+        dom.stageLoader.classList.remove('flex');
+      }
+    });
+
+    // Download Active PNG
+    dom.downloadBtn.addEventListener('click', () => {
+      const currentShoot = state.sessionShoots.find((s) => s.id === state.activeShootId);
+      if (!currentShoot) return;
+
+      const link = document.createElement('a');
+      link.href = currentShoot.url;
+      const slug = currentShoot.label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      link.download = `atelier-${slug}-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    });
+  </script>
+</body>
+</html>
